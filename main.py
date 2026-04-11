@@ -25,6 +25,7 @@ def main():
 
     print("Bot started")
     updater.start_polling()
+    updater.bot.send_message(chat_id=args.chat_id, text="🤖 Bot is now online!")
     updater.idle()
 
     task_scheduler.stop()
