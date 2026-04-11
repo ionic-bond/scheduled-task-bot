@@ -27,39 +27,50 @@ class TaskScheduler:
         for task in self.config.data["tasks"]:
             self._add_job(task)
 
+    def _job_id(self, task):
+        return f"task_{task['created_at']}"
+
     def _add_job(self, task):
+        task_id = self.config.task_index(task)
         try:
             trigger = CronTrigger.from_crontab(task["cron"])
             self.scheduler.add_job(
                 self._execute_task,
                 trigger=trigger,
-                id=f"task_{task['id']}",
-                args=[task["id"], False],
+                id=self._job_id(task),
+                args=[task["created_at"], False],
                 replace_existing=True
             )
-            print(f"Job scheduled for task #{task['id']}: {task['cron']}")
+            print(f"Job scheduled for task #{task_id}: {task['cron']}")
         except Exception as e:
-            print(f"Failed to schedule task #{task['id']}: {e}")
+            print(f"Failed to schedule task #{task_id}: {e}")
 
     def add_task(self, task):
         self._add_job(task)
 
-    def remove_task(self, task_id):
+    def remove_task(self, task):
         try:
-            self.scheduler.remove_job(f"task_{task_id}")
+            self.scheduler.remove_job(self._job_id(task))
         except Exception:
             pass
 
-    def run_task_now(self, task_id):
-        thread = threading.Thread(target=self._execute_task, args=(task_id, True), daemon=True)
+    def run_task_now(self, task):
+        thread = threading.Thread(target=self._execute_task, args=(task["created_at"], True), daemon=True)
         thread.start()
 
-    def _execute_task(self, task_id, manual=False):
-        task = self.config.get_task(task_id)
+    def _find_task_by_created_at(self, created_at):
+        for task in self.config.data["tasks"]:
+            if task["created_at"] == created_at:
+                return task
+        return None
+
+    def _execute_task(self, created_at, manual=False):
+        task = self._find_task_by_created_at(created_at)
         if not task:
-            print(f"Task #{task_id} not found, skipping")
+            print(f"Task with created_at={created_at} not found, skipping")
             return
 
+        task_id = self.config.task_index(task)
         retry_count = self.config.data.get("retry_count", 3)
         last_error = None
 

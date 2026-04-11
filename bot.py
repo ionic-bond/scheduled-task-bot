@@ -37,9 +37,9 @@ def _task_keyboard(prefix):
         return None
     return InlineKeyboardMarkup(
         [[InlineKeyboardButton(
-            f"#{t['id']} {t['instruction'][:30]}",
-            callback_data=f"{prefix}_{t['id']}"
-        )] for t in tasks]
+            f"#{i+1} {t['instruction'][:30]}",
+            callback_data=f"{prefix}_{i+1}"
+        )] for i, t in enumerate(tasks)]
     )
 
 
@@ -84,9 +84,9 @@ def cmd_tasks(update: Update, context: CallbackContext):
         update.message.reply_text("No tasks configured. Use /addtask to create one.")
         return
     lines = ["📋 Tasks\n"]
-    for t in tasks:
+    for i, t in enumerate(tasks, 1):
         preview = t["instruction"][:50] + ("..." if len(t["instruction"]) > 50 else "")
-        lines.append(f"#{t['id']} | {describe_cron(t['cron'])}\n   {preview}")
+        lines.append(f"#{i} | {describe_cron(t['cron'])}\n   {preview}")
     update.message.reply_text("\n".join(lines))
 
 
@@ -96,7 +96,7 @@ def _show_taskinfo(chat_context, task_id):
         chat_context(f"❌ Task #{task_id} not found.")
         return
     chat_context(
-        f"📋 Task #{task['id']}\n\n"
+        f"📋 Task #{task_id}\n\n"
         f"Schedule: {describe_cron(task['cron'])} ({task['cron']})\n\n"
         f"Instruction:\n{task['instruction']}"
     )
@@ -166,20 +166,25 @@ def cb_deltask(update: Update, context: CallbackContext):
         query.edit_message_text("Cancelled.")
         return
     task_id = int(query.data.removeprefix("del_confirm_"))
+    task = config.get_task(task_id)
+    if not task:
+        query.edit_message_text(f"❌ Task #{task_id} not found.")
+        return
+    task_scheduler.remove_task(task)
     config.remove_task(task_id)
-    task_scheduler.remove_task(task_id)
     query.edit_message_text(f"✅ Task #{task_id} deleted.")
 
 
 def _run_task(chat_context, task_id):
-    if not config.get_task(task_id):
+    task = config.get_task(task_id)
+    if not task:
         chat_context(f"❌ Task #{task_id} not found.")
         return
     if not all([config.data["base_url"], config.data["api_key"], config.data["model"]]):
         chat_context("❌ Please configure API settings first (/setapi, /setmodel).")
         return
     chat_context(f"🔄 Running task #{task_id}...")
-    task_scheduler.run_task_now(task_id)
+    task_scheduler.run_task_now(task)
 
 
 def cmd_runtask(update: Update, context: CallbackContext):
@@ -330,7 +335,8 @@ def addtask_cron(update: Update, context: CallbackContext):
 
     task = config.add_task(context.user_data["new_instruction"], cron)
     task_scheduler.add_task(task)
-    update.message.reply_text(f"✅ Task #{task['id']} created.\nSchedule: {describe_cron(cron)}")
+    task_id = config.task_index(task)
+    update.message.reply_text(f"✅ Task #{task_id} created.\nSchedule: {describe_cron(cron)}")
     return ConversationHandler.END
 
 

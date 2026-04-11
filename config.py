@@ -1,5 +1,6 @@
 import json
 import os
+from datetime import datetime
 
 CONFIG_FILE = "config.json"
 
@@ -8,7 +9,6 @@ DEFAULT_CONFIG = {
     "base_url": "",
     "model": "",
     "retry_count": 3,
-    "next_task_id": 1,
     "tasks": []
 }
 
@@ -24,6 +24,7 @@ class Config:
             with open(CONFIG_FILE, "r", encoding="utf-8") as f:
                 saved = json.load(f)
                 self.data.update(saved)
+            self._sort_tasks()
             print(f"Config loaded from {CONFIG_FILE}")
         else:
             print("No config file found, using defaults")
@@ -33,26 +34,31 @@ class Config:
             json.dump(self.data, f, indent=2, ensure_ascii=False)
         print("Config saved")
 
+    def _sort_tasks(self):
+        self.data["tasks"].sort(key=lambda t: t["created_at"])
+
     def get_task(self, task_id):
-        for task in self.data["tasks"]:
-            if task["id"] == task_id:
-                return task
+        tasks = self.data["tasks"]
+        if 1 <= task_id <= len(tasks):
+            return tasks[task_id - 1]
         return None
 
     def add_task(self, instruction, cron):
         task = {
-            "id": self.data["next_task_id"],
             "instruction": instruction,
-            "cron": cron
+            "cron": cron,
+            "created_at": datetime.now().isoformat()
         }
         self.data["tasks"].append(task)
-        self.data["next_task_id"] += 1
+        self._sort_tasks()
         self.save()
         return task
 
     def remove_task(self, task_id):
-        self.data["tasks"] = [t for t in self.data["tasks"] if t["id"] != task_id]
-        self.save()
+        task = self.get_task(task_id)
+        if task:
+            self.data["tasks"].remove(task)
+            self.save()
 
     def update_task(self, task_id, **kwargs):
         task = self.get_task(task_id)
@@ -60,3 +66,9 @@ class Config:
             task.update(kwargs)
             self.save()
         return task
+
+    def task_index(self, task):
+        try:
+            return self.data["tasks"].index(task) + 1
+        except ValueError:
+            return None
