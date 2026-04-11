@@ -8,6 +8,13 @@ from apscheduler.triggers.cron import CronTrigger
 
 import llm
 
+CRON_HELP = (
+    "Format: minute hour day month weekday\n"
+    "  minute:  0-59  hour: 0-23\n"
+    "  day: 1-31  month: 1-12  weekday: 0-6 (Sun=0)\n"
+    "  * = any  */n = every n"
+)
+
 SET_BASE_URL, SET_API_KEY = range(2)
 MODEL_CHOOSE, MODEL_INPUT = range(2, 4)
 RETRY_INPUT = 4
@@ -319,9 +326,7 @@ def addtask_start(update: Update, context: CallbackContext):
 
 def addtask_instruction(update: Update, context: CallbackContext):
     context.user_data["new_instruction"] = update.message.text.strip()
-    update.message.reply_text(
-        "Enter the cron schedule (e.g. '*/30 * * * *' for every 30 minutes):"
-    )
+    update.message.reply_text(f"Enter the cron schedule:\n{CRON_HELP}")
     return TASK_CRON
 
 
@@ -396,7 +401,7 @@ def edittask_field(update: Update, context: CallbackContext):
     else:
         query.edit_message_text(
             f"Current schedule: {describe_cron(current_value)} ({current_value})\n\n"
-            f"Enter the new cron schedule:"
+            f"Enter the new cron schedule:\n{CRON_HELP}"
         )
     return EDIT_VALUE
 
