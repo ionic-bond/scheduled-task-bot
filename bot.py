@@ -18,6 +18,7 @@ CRON_HELP = (
 SET_BASE_URL, SET_API_KEY = range(2)
 MODEL_CHOOSE, MODEL_INPUT = range(2, 4)
 RETRY_INPUT = 4
+HISTORY_INPUT = 10
 TASK_INSTRUCTION, TASK_CRON = range(5, 7)
 EDIT_FIELD, EDIT_VALUE = range(7, 9)
 
@@ -63,6 +64,7 @@ def cmd_start(update: Update, context: CallbackContext):
         "/setapi - Set API base URL and key\n"
         "/setmodel - Set LLM model\n"
         "/setretry - Set retry count\n"
+        "/sethistory - Set dedup history count\n"
         "/tasks - List all tasks\n"
         "/addtask - Add a new task\n"
         "/taskinfo <id> - View task details\n"
@@ -81,7 +83,8 @@ def cmd_settings(update: Update, context: CallbackContext):
         f"Base URL: {d['base_url'] or 'Not set'}\n"
         f"API Key: {api_key_display}\n"
         f"Model: {d['model'] or 'Not set'}\n"
-        f"Retry Count: {d['retry_count']}"
+        f"Retry Count: {d['retry_count']}\n"
+        f"History Count: {d.get('history_count', 3)}"
     )
 
 
@@ -317,6 +320,29 @@ def setretry_input(update: Update, context: CallbackContext):
     return ConversationHandler.END
 
 
+# ---- sethistory conversation ----
+
+def sethistory_start(update: Update, context: CallbackContext):
+    update.message.reply_text(
+        f"Current history count: {config.data.get('history_count', 3)}\nEnter new history count (0 to disable):"
+    )
+    return HISTORY_INPUT
+
+
+def sethistory_input(update: Update, context: CallbackContext):
+    try:
+        count = int(update.message.text.strip())
+        if count < 0:
+            raise ValueError
+    except ValueError:
+        update.message.reply_text("❌ Please enter a valid non-negative number.")
+        return HISTORY_INPUT
+    config.data["history_count"] = count
+    config.save()
+    update.message.reply_text(f"✅ History count set to: {count}")
+    return ConversationHandler.END
+
+
 # ---- addtask conversation ----
 
 def addtask_start(update: Update, context: CallbackContext):
@@ -475,6 +501,15 @@ def register_handlers(dispatcher):
         entry_points=[CommandHandler("setretry", setretry_start)],
         states={
             RETRY_INPUT: [MessageHandler(text_filter, setretry_input)],
+        },
+        fallbacks=[CommandHandler("cancel", cancel)],
+        allow_reentry=True,
+    ))
+
+    dispatcher.add_handler(ConversationHandler(
+        entry_points=[CommandHandler("sethistory", sethistory_start)],
+        states={
+            HISTORY_INPUT: [MessageHandler(text_filter, sethistory_input)],
         },
         fallbacks=[CommandHandler("cancel", cancel)],
         allow_reentry=True,

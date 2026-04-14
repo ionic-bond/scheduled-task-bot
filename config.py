@@ -9,6 +9,7 @@ DEFAULT_CONFIG = {
     "base_url": "",
     "model": "",
     "retry_count": 3,
+    "history_count": 3,
     "tasks": []
 }
 

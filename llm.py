@@ -12,18 +12,26 @@ Response rules:
 NO_UPDATE_TOKEN = "[NO_UPDATE]"
 
 
-def query(base_url, api_key, model, instruction):
+DEDUP_PROMPT = "\n\n[IMPORTANT: The following are your previous reports for this task. Do NOT repeat any information already covered. Only report NEW information not mentioned before.]"
+
+
+def query(base_url, api_key, model, instruction, history=None):
     url = f"{base_url.rstrip('/')}/chat/completions"
     headers = {
         "Authorization": f"Bearer {api_key}",
         "Content-Type": "application/json"
     }
+    messages = [{"role": "system", "content": SYSTEM_PROMPT}]
+    if history:
+        messages.append({"role": "user", "content": instruction})
+        for past_response in history:
+            messages.append({"role": "assistant", "content": past_response})
+            messages.append({"role": "user", "content": instruction + DEDUP_PROMPT})
+    else:
+        messages.append({"role": "user", "content": instruction})
     payload = {
         "model": model,
-        "messages": [
-            {"role": "system", "content": SYSTEM_PROMPT},
-            {"role": "user", "content": instruction}
-        ]
+        "messages": messages
     }
     resp = requests.post(url, headers=headers, json=payload, timeout=120)
     resp.raise_for_status()

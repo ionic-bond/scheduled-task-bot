@@ -72,7 +72,11 @@ class TaskScheduler:
 
         task_id = self.config.task_index(task)
         retry_count = self.config.data.get("retry_count", 3)
+        history_count = self.config.data.get("history_count", 3)
         last_error = None
+
+        history = task.get("history", [])
+        recent_history = history[-history_count:] if history_count > 0 else []
 
         for attempt in range(1, retry_count + 1):
             try:
@@ -81,7 +85,8 @@ class TaskScheduler:
                     self.config.data["base_url"],
                     self.config.data["api_key"],
                     self.config.data["model"],
-                    task["instruction"]
+                    task["instruction"],
+                    recent_history
                 )
                 print(f"Task #{task_id} response:\n{response}")
 
@@ -93,6 +98,10 @@ class TaskScheduler:
                             text=f"ℹ️ Task #{task_id}: No valuable information found."
                         )
                 else:
+                    if "history" not in task:
+                        task["history"] = []
+                    task["history"].append(response)
+                    self.config.save()
                     self.bot.send_message(
                         chat_id=self.chat_id,
                         text=f"📋 Task #{task_id} Report\n\n{response}"
@@ -109,3 +118,4 @@ class TaskScheduler:
             chat_id=self.chat_id,
             text=f"❌ Task #{task_id} failed after {retry_count} attempts.\nLast error: {last_error}"
         )
+
