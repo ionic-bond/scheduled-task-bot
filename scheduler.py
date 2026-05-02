@@ -90,7 +90,7 @@ class TaskScheduler:
                 )
                 print(f"Task #{task_id} response:\n{response}")
 
-                if response.strip().startswith(llm.NO_UPDATE_TOKEN):
+                if llm.NO_UPDATE_TOKEN in response:
                     print(f"Task #{task_id}: No update")
                     if manual:
                         self.bot.send_message(
