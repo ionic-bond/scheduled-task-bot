@@ -16,6 +16,28 @@ DEDUP_PROMPT = "\n\n[IMPORTANT: The following are your previous reports for this
 
 
 def query(base_url, api_key, model, instruction, history=None):
+    if api_key.startswith("AIza") and "openai" not in base_url.lower():
+        gemini_base = base_url.rstrip('/')
+        if not gemini_base.endswith("/v1beta"):
+            gemini_base += "/v1beta"
+        url = f"{gemini_base}/models/{model}:generateContent?key={api_key}"
+        headers = {"Content-Type": "application/json"}
+        contents = []
+        if history:
+            contents.append({"role": "user", "parts": [{"text": instruction}]})
+            for past_response in history:
+                contents.append({"role": "model", "parts": [{"text": past_response}]})
+                contents.append({"role": "user", "parts": [{"text": instruction + DEDUP_PROMPT}]})
+        else:
+            contents.append({"role": "user", "parts": [{"text": instruction}]})
+        payload = {
+            "systemInstruction": {"parts": [{"text": SYSTEM_PROMPT}]},
+            "contents": contents
+        }
+        resp = requests.post(url, headers=headers, json=payload, timeout=120)
+        resp.raise_for_status()
+        return resp.json()["candidates"][0]["content"]["parts"][0]["text"]
+
     url = f"{base_url.rstrip('/')}/chat/completions"
     headers = {
         "Authorization": f"Bearer {api_key}",
@@ -39,6 +61,15 @@ def query(base_url, api_key, model, instruction, history=None):
 
 
 def list_models(base_url, api_key):
+    if api_key.startswith("AIza") and "openai" not in base_url.lower():
+        gemini_base = base_url.rstrip('/')
+        if not gemini_base.endswith("/v1beta"):
+            gemini_base += "/v1beta"
+        url = f"{gemini_base}/models?key={api_key}"
+        resp = requests.get(url, timeout=30)
+        resp.raise_for_status()
+        return [m["name"].replace("models/", "") for m in resp.json().get("models", []) if "generateContent" in m.get("supportedGenerationMethods", [])]
+
     url = f"{base_url.rstrip('/')}/models"
     headers = {"Authorization": f"Bearer {api_key}"}
     resp = requests.get(url, headers=headers, timeout=30)
