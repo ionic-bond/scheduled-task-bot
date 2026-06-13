@@ -45,7 +45,8 @@ def query(base_url, api_key, model, instruction, history=None):
             contents.append({"role": "user", "parts": [{"text": instruction}]})
         payload = {
             "systemInstruction": {"parts": [{"text": SYSTEM_PROMPT}]},
-            "contents": contents
+            "contents": contents,
+            "tools": [{"google_search": {}}]
         }
         resp = requests.post(url, headers=headers, json=payload, timeout=120)
         resp.raise_for_status()
