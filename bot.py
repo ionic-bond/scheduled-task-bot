@@ -65,12 +65,11 @@ def cmd_start(update: Update, context: CallbackContext):
         "/setmodel - Set LLM model\n"
         "/setretry - Set retry count\n"
         "/sethistory - Set dedup history count\n"
-        "/tasks - List all tasks\n"
+        "/tasks [id] - List tasks or view task details\n"
         "/addtask - Add a new task\n"
-        "/taskinfo <id> - View task details\n"
-        "/edittask <id> - Edit a task\n"
-        "/deltask <id> - Delete a task\n"
-        "/runtask <id> - Run a task now\n"
+        "/edittask [id] - Edit a task\n"
+        "/deltask [id] - Delete a task\n"
+        "/runtask [id] - Run a task now\n"
         "/cancel - Cancel current operation"
     )
 
@@ -93,11 +92,20 @@ def cmd_tasks(update: Update, context: CallbackContext):
     if not tasks:
         update.message.reply_text("No tasks configured. Use /addtask to create one.")
         return
+    if context.args:
+        try:
+            task_id = int(context.args[0])
+        except ValueError:
+            update.message.reply_text("❌ Invalid task ID.")
+            return
+        _show_taskinfo(update.message.reply_text, task_id)
+        return
     lines = ["📋 Tasks\n"]
     for i, t in enumerate(tasks, 1):
         preview = t["instruction"][:50] + ("..." if len(t["instruction"]) > 50 else "")
         lines.append(f"#{i} | {describe_cron(t['cron'])}\n   {preview}")
-    update.message.reply_text("\n".join(lines))
+    kb = _task_keyboard("ti")
+    update.message.reply_text("\n".join(lines), reply_markup=kb)
 
 
 def _show_taskinfo(chat_context, task_id):
@@ -110,22 +118,6 @@ def _show_taskinfo(chat_context, task_id):
         f"Schedule: {describe_cron(task['cron'])} ({task['cron']})\n\n"
         f"Instruction:\n{task['instruction']}"
     )
-
-
-def cmd_taskinfo(update: Update, context: CallbackContext):
-    if not context.args:
-        kb = _task_keyboard("ti")
-        if not kb:
-            update.message.reply_text("No tasks configured.")
-            return
-        update.message.reply_text("Select a task:", reply_markup=kb)
-        return
-    try:
-        task_id = int(context.args[0])
-    except ValueError:
-        update.message.reply_text("❌ Invalid task ID.")
-        return
-    _show_taskinfo(update.message.reply_text, task_id)
 
 
 def cb_taskinfo(update: Update, context: CallbackContext):
@@ -223,7 +215,14 @@ def cb_runtask(update: Update, context: CallbackContext):
 # ---- setapi conversation ----
 
 def setapi_start(update: Update, context: CallbackContext):
-    update.message.reply_text("Enter the API base URL (e.g. https://api.example.com/v1):")
+    current_url = config.data.get("base_url") or "Not set"
+    current_key = config.data.get("api_key")
+    current_key_display = f"{current_key[:8]}..." if current_key else "Not set"
+    update.message.reply_text(
+        f"Current Base URL: {current_url}\n"
+        f"Current API Key: {current_key_display}\n\n"
+        f"Enter the new API base URL (e.g. https://api.example.com/v1):"
+    )
     return SET_BASE_URL
 
 
@@ -243,12 +242,14 @@ def setapi_api_key(update: Update, context: CallbackContext):
 # ---- setmodel conversation ----
 
 def setmodel_start(update: Update, context: CallbackContext):
+    current_model = config.data.get("model") or "Not set"
     keyboard = [
         [InlineKeyboardButton("📋 List available models", callback_data="model_list")],
         [InlineKeyboardButton("✏️ Enter manually", callback_data="model_manual")]
     ]
     update.message.reply_text(
-        "How would you like to set the model?",
+        f"Current Model: {current_model}\n\n"
+        f"How would you like to set the model?",
         reply_markup=InlineKeyboardMarkup(keyboard)
     )
     return MODEL_CHOOSE
@@ -464,7 +465,6 @@ def register_handlers(dispatcher):
     dispatcher.add_handler(CommandHandler("help", cmd_start))
     dispatcher.add_handler(CommandHandler("settings", cmd_settings))
     dispatcher.add_handler(CommandHandler("tasks", cmd_tasks))
-    dispatcher.add_handler(CommandHandler("taskinfo", cmd_taskinfo))
     dispatcher.add_handler(CommandHandler("deltask", cmd_deltask))
     dispatcher.add_handler(CommandHandler("runtask", cmd_runtask))
     dispatcher.add_handler(CallbackQueryHandler(cb_taskinfo, pattern=r"^ti_"))
