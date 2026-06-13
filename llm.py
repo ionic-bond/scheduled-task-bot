@@ -1,5 +1,17 @@
 import requests
 
+_key_index = 0
+
+def _get_next_key(api_keys_str):
+    global _key_index
+    keys = [k.strip() for k in api_keys_str.split(',')]
+    keys = [k for k in keys if k]
+    if not keys:
+        return ""
+    key = keys[_key_index % len(keys)]
+    _key_index += 1
+    return key
+
 SYSTEM_PROMPT = """You are an information monitoring assistant. Your job is to check for specific information as instructed by the user.
 
 Response rules:
@@ -16,6 +28,7 @@ DEDUP_PROMPT = "\n\n[IMPORTANT: The following are your previous reports for this
 
 
 def query(base_url, api_key, model, instruction, history=None):
+    api_key = _get_next_key(api_key)
     if api_key.startswith("AIza") and "openai" not in base_url.lower():
         gemini_base = base_url.rstrip('/')
         if not gemini_base.endswith("/v1beta"):
@@ -61,6 +74,7 @@ def query(base_url, api_key, model, instruction, history=None):
 
 
 def list_models(base_url, api_key):
+    api_key = _get_next_key(api_key)
     if api_key.startswith("AIza") and "openai" not in base_url.lower():
         gemini_base = base_url.rstrip('/')
         if not gemini_base.endswith("/v1beta"):
