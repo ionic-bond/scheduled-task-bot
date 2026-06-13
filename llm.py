@@ -69,6 +69,8 @@ def query(base_url, api_key, model, instruction, history=None):
         "model": model,
         "messages": messages
     }
+    if any(x in model.lower() for x in ["antigravity", "gemini"]) or any(x in base_url.lower() for x in ["antigravity", "gemini"]):
+        payload["tools"] = [{"type": "web_search"}]
     resp = requests.post(url, headers=headers, json=payload, timeout=120)
     resp.raise_for_status()
     return resp.json()["choices"][0]["message"]["content"]
