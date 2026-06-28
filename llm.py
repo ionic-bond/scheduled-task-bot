@@ -75,7 +75,13 @@ def query(base_url, api_key, model, instruction, history=None):
     }
     resp = requests.post(url, headers=headers, json=payload, timeout=120)
     resp.raise_for_status()
-    return resp.json()["output_text"]
+    data = resp.json()
+    for item in reversed(data.get("output", [])):
+        if item.get("type") == "message":
+            for part in item.get("content", []):
+                if part.get("type") == "output_text":
+                    return part["text"]
+    raise ValueError(f"No output text found in response: {data}")
 
 
 def list_models(base_url, api_key):
