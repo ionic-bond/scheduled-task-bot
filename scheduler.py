@@ -90,6 +90,13 @@ class TaskScheduler:
                 )
                 print(f"Task #{task_id} response:\n{response}")
 
+                if "[ERROR]" in response:
+                    self.bot.send_message(
+                        chat_id=self.chat_id,
+                        text=f"❌ Task #{task_id}\n\n{response}"
+                    )
+                    return
+
                 if llm.NO_UPDATE_TOKEN in response:
                     print(f"Task #{task_id}: No update")
                     if manual:

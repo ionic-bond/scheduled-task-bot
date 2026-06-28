@@ -12,9 +12,11 @@ def _get_next_key(api_keys_str):
     _key_index += 1
     return key
 
-SYSTEM_PROMPT = """You are an information monitoring assistant. Your job is to check for specific information as instructed by the user.
+SYSTEM_PROMPT = """You are an information monitoring assistant. Your job is to search the web for specific information as instructed by the user.
 
 Response rules:
+- You MUST use web search to find information. Do NOT rely on your training data alone.
+- If you cannot access web search or the search tool is unavailable, start your response with EXACTLY: [ERROR] Unable to perform web search.
 - If you find valuable, new, or noteworthy information, provide a clear and concise report.
 - If there is NOTHING valuable or new to report, start your response with EXACTLY: [NO_UPDATE]
   Then on a new line, briefly explain what you found (or didn't find) and why it's not noteworthy.
@@ -52,28 +54,28 @@ def query(base_url, api_key, model, instruction, history=None):
         resp.raise_for_status()
         return resp.json()["candidates"][0]["content"]["parts"][0]["text"]
 
-    url = f"{base_url.rstrip('/')}/chat/completions"
+    url = f"{base_url.rstrip('/')}/responses"
     headers = {
         "Authorization": f"Bearer {api_key}",
         "Content-Type": "application/json"
     }
-    messages = [{"role": "system", "content": SYSTEM_PROMPT}]
+    input_messages = []
     if history:
-        messages.append({"role": "user", "content": instruction})
+        input_messages.append({"role": "user", "content": instruction})
         for past_response in history:
-            messages.append({"role": "assistant", "content": past_response})
-            messages.append({"role": "user", "content": instruction + DEDUP_PROMPT})
+            input_messages.append({"role": "assistant", "content": past_response})
+            input_messages.append({"role": "user", "content": instruction + DEDUP_PROMPT})
     else:
-        messages.append({"role": "user", "content": instruction})
+        input_messages.append({"role": "user", "content": instruction})
     payload = {
         "model": model,
-        "messages": messages
+        "instructions": SYSTEM_PROMPT,
+        "input": input_messages,
+        "tools": [{"type": "web_search"}]
     }
-    if any(x in model.lower() for x in ["antigravity", "gemini"]) or any(x in base_url.lower() for x in ["antigravity", "gemini"]):
-        payload["tools"] = [{"type": "web_search"}]
     resp = requests.post(url, headers=headers, json=payload, timeout=120)
     resp.raise_for_status()
-    return resp.json()["choices"][0]["message"]["content"]
+    return resp.json()["output_text"]
 
 
 def list_models(base_url, api_key):
