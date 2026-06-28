@@ -1,3 +1,4 @@
+import re
 import requests
 
 _key_index = 0
@@ -21,13 +22,21 @@ Response rules:
 - If there is NOTHING valuable or new to report, start your response with EXACTLY: [NO_UPDATE]
   Then on a new line, briefly explain what you found (or didn't find) and why it's not noteworthy.
 - Do not fabricate information. Only report what you genuinely know or can determine.
-- Be concise but informative in your reports.
-- Do NOT include URLs or links. Simply note the source name (e.g. "according to XXX")."""
+- Be concise but informative in your reports."""
 
 NO_UPDATE_TOKEN = "[NO_UPDATE]"
 
 
 DEDUP_PROMPT = "\n\n[IMPORTANT: The following are your previous reports for this task. Do NOT repeat any information already covered. Only report NEW information not mentioned before.]"
+
+def _strip_links(text):
+    # Remove markdown links: [text](url) -> text
+    text = re.sub(r'\[([^\]]+)\]\([^)]+\)', r'\1', text)
+    # Remove standalone URLs
+    text = re.sub(r'https?://[^\s)]+', '', text)
+    # Clean up empty parentheses that might be left behind, e.g. " ()"
+    text = re.sub(r'\s*\(\s*\)', '', text)
+    return text.strip()
 
 
 def query(base_url, api_key, model, instruction, history=None):
@@ -81,7 +90,7 @@ def query(base_url, api_key, model, instruction, history=None):
         if item.get("type") == "message":
             for part in item.get("content", []):
                 if part.get("type") == "output_text":
-                    return part["text"]
+                    return _strip_links(part["text"])
     raise ValueError(f"No output text found in response: {data}")
 
 
