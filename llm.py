@@ -21,7 +21,8 @@ Response rules:
 - If there is NOTHING valuable or new to report, start your response with EXACTLY: [NO_UPDATE]
   Then on a new line, briefly explain what you found (or didn't find) and why it's not noteworthy.
 - Do not fabricate information. Only report what you genuinely know or can determine.
-- Be concise but informative in your reports."""
+- Be concise but informative in your reports.
+- Do NOT include URLs or links. Simply note the source name (e.g. "according to XXX")."""
 
 NO_UPDATE_TOKEN = "[NO_UPDATE]"
 
